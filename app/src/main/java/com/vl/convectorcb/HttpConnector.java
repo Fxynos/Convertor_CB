@@ -12,12 +12,14 @@ import java.nio.charset.StandardCharsets;
 
 public class HttpConnector {
     private HttpListener listener;
+    boolean working = false;
 
     public HttpConnector(HttpListener listener) {
         this.listener = listener;
     }
 
     public void get(URL url, int requestCode) {
+        working = true;
         Thread networkThread = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -31,11 +33,17 @@ public class HttpConnector {
                     connection.disconnect();
                 } catch (IOException exception) {
                     if (listener != null) listener.onError(exception.getMessage(), requestCode);
+                } finally {
+                    working = false;
                 }
             }
         });
         networkThread.setName("networkThread");
         networkThread.start();
+    }
+
+    public boolean isWorking() {
+        return working;
     }
 
     interface HttpListener {

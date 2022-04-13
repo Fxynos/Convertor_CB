@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">Convector CB</string>
-    <string name="valute_list_title">Список валют</string>
+    <string name="valuteListTitle">Список валют</string>
+
+    <string name="preferencesFile">appSP</string>
+    <string name="preferencesLastJSONRespond">lastJSONRespond</string>
+    <string name="preferencesLastRefreshTime">lastRefreshTime</string>
 </resources>

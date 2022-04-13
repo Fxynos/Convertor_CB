@@ -5,13 +5,18 @@ import androidx.core.app.ActivityCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.Manifest;
+import android.animation.ObjectAnimator;
+import android.animation.TimeInterpolator;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -24,16 +29,30 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-public class MainActivity extends AppCompatActivity implements HttpConnector.HttpListener, RecyclerAdapter.OnItemClickListener {
+public class MainActivity extends AppCompatActivity implements HttpConnector.HttpListener, RecyclerAdapter.OnItemClickListener, View.OnClickListener {
+    public static final long REFRESH_COOLDOWN = 8 * 3600 * 1000;
     RecyclerView recyclerView;
     RecyclerAdapter adapter;
+    TextView lastRefreshTime;
+    ImageButton refreshButton;
     ArrayList<Valute> valutes = new ArrayList<>();
-    long time;
+    SharedPreferences preferences;
+    HttpConnector connector;
+    ObjectAnimator refreshAnimator;
+
+    static private String parseTime(long millis) {
+        if (millis > 0) {
+            Calendar data = Calendar.getInstance();
+            data.setTimeInMillis(millis);
+            return String.format("%02d:%02d", data.get(Calendar.HOUR), data.get(Calendar.MINUTE));
+        } else return "";
+    }
 
     static private ArrayList<Valute> parseResponce(String jsonString) {
         ArrayList<Valute> result = new ArrayList<>();
@@ -55,15 +74,28 @@ public class MainActivity extends AppCompatActivity implements HttpConnector.Htt
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         initializeView();
+        preferences = getSharedPreferences(getString(R.string.preferencesFile), Context.MODE_PRIVATE);
+        long lastRespondTime = preferences.getLong(getString(R.string.preferencesLastRefreshTime), -REFRESH_COOLDOWN);
+        lastRefreshTime.setText(parseTime(lastRespondTime));
         adapter = new RecyclerAdapter(this, valutes, this);
         recyclerView.setAdapter(adapter);
-        HttpConnector connector = new HttpConnector(this);
-        try {
-            time = System.currentTimeMillis();
-            connector.get(new URL("https://www.cbr-xml-daily.ru/daily_json.js"), 1);
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
+        connector = new HttpConnector(this);
+        if (Calendar.getInstance().getTimeInMillis() - lastRespondTime >= REFRESH_COOLDOWN) {
+            refresh();
+        } else {
+            String lastRespond = preferences.getString(getString(R.string.preferencesLastJSONRespond), "");
+            if (lastRespond.length() > 0) {
+                valutes.clear();
+                valutes.addAll(parseResponce(lastRespond));
+                adapter.notifyDataSetChanged();
+            }
         }
+        refreshButton.setOnClickListener(this);
+    }
+
+    @Override
+    public void onClick(View view) {
+        if (view.getId() == R.id.refreshImageButton && !connector.isWorking()) refresh();
     }
 
     @Override
@@ -73,11 +105,17 @@ public class MainActivity extends AppCompatActivity implements HttpConnector.Htt
 
     @Override
     public void onRespond(String result, int requestCode) {
+        long lastRespondTime = Calendar.getInstance().getTimeInMillis();
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putString(getString(R.string.preferencesLastJSONRespond), result);
+        editor.putLong(getString(R.string.preferencesLastRefreshTime), lastRespondTime);
+        editor.apply();
         valutes.clear();
         valutes.addAll(parseResponce(result));
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                lastRefreshTime.setText(parseTime(lastRespondTime));
                 adapter.notifyDataSetChanged();
             }
         });
@@ -93,8 +131,26 @@ public class MainActivity extends AppCompatActivity implements HttpConnector.Htt
         });
     }
 
+    private void startRefreshAnimation() {
+        final int duration = 500;
+        refreshAnimator = ObjectAnimator.ofFloat(refreshButton, "rotation", 0, 360).setDuration(duration);
+        refreshAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
+        refreshAnimator.start();
+    }
+
+    private void refresh() {
+        startRefreshAnimation();
+        try {
+            connector.get(new URL("https://www.cbr-xml-daily.ru/daily_json.js"), 1);
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void initializeView() {
         recyclerView = findViewById(R.id.valuteListRecycler);
+        lastRefreshTime = findViewById(R.id.lastRefreshTimeTextView);
+        refreshButton = findViewById(R.id.refreshImageButton);
     }
 }
 
