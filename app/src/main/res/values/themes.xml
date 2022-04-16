@@ -1,6 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Theme.ConvectorCB" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="editTextStyle">@style/Edittext</item>
         <!-- Primary brand color. -->
         <item name="colorPrimary">@color/gray</item>
         <item name="colorPrimaryVariant">@color/gray</item>

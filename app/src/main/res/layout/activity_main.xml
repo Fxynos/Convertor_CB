@@ -59,7 +59,59 @@
     </LinearLayout>
 
     <LinearLayout
-        android:paddingHorizontal="10dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@drawable/convertor_window_background"
+        android:layout_marginVertical="30dp"
+        android:padding="12dp"
+        android:gravity="center"
+        android:layout_marginHorizontal="8dp">
+
+        <EditText
+            android:id="@+id/firstValuteEditText"
+            android:inputType="numberDecimal"
+            android:imeOptions="actionDone"
+            android:layout_width="80dp"
+            android:gravity="center"
+            android:layout_height="40dp"
+            android:layout_marginRight="12dp"/>
+
+        <TextView
+            android:id="@+id/firstValuteTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:theme="@style/ValuteTitle" />
+
+        <ImageButton
+            android:id="@+id/swapImageButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_swap"
+            android:background="@android:color/transparent"
+            android:scaleType="fitCenter"
+            app:tint="@color/blue_gray"
+            android:layout_marginHorizontal="12dp"/>
+
+        <TextView
+            android:id="@+id/secondValuteText"
+            android:background="@drawable/edittext_background"
+            android:textColor="@color/black"
+            android:textSize="14sp"
+            android:layout_width="80dp"
+            android:gravity="center"
+            android:layout_height="40dp"
+            android:layout_marginRight="12dp"/>
+
+        <TextView
+            android:id="@+id/secondValuteTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:theme="@style/ValuteTitle"/>
+
+    </LinearLayout>
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"

@@ -1,6 +1,18 @@
 package com.vl.convectorcb;
 
 public class Valute {
+    final static String RUB_ID = "RUBLE";
+
+    public static Valute getRuble() {
+        Valute ruble = new Valute();
+        ruble.ID = RUB_ID;
+        ruble.CharCode = "RUB";
+        ruble.Name = "Рубль";
+        ruble.Nominal = 1;
+        ruble.Value = 1;
+        return ruble;
+    }
+
     private String ID, NumCode, CharCode, Name;
     private double Previous, Value;
     private int Nominal;

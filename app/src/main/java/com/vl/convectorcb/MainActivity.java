@@ -1,56 +1,56 @@
 package com.vl.convectorcb;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
-import android.Manifest;
 import android.animation.ObjectAnimator;
-import android.animation.TimeInterpolator;
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateDecelerateInterpolator;
+import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
-import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-public class MainActivity extends AppCompatActivity implements HttpConnector.HttpListener, RecyclerAdapter.OnItemClickListener, View.OnClickListener {
+public class MainActivity extends AppCompatActivity implements HttpConnector.HttpListener, RecyclerAdapter.OnItemClickListener, View.OnClickListener, TextWatcher, View.OnKeyListener {
     public static final long REFRESH_COOLDOWN = 8 * 3600 * 1000;
     RecyclerView recyclerView;
     RecyclerAdapter adapter;
-    TextView lastRefreshTime;
-    ImageButton refreshButton;
+    TextView lastRefreshTime, firstValuteTitle, secondValuteTitle, secondValuteField;
+    ImageButton refreshButton, swapButton;
     ArrayList<Valute> valutes = new ArrayList<>();
     SharedPreferences preferences;
     HttpConnector connector;
     ObjectAnimator refreshAnimator;
+    EditText firstValuteField;
+
+    int[] convertingValutesPos = new int[]{0, 11};
+    boolean convertingValutesChoosed = false;
 
     static private String parseTime(long millis) {
         if (millis > 0) {
             Calendar data = Calendar.getInstance();
             data.setTimeInMillis(millis);
-            return String.format("%02d:%02d", data.get(Calendar.HOUR), data.get(Calendar.MINUTE));
+            return String.format("%02d:%02d", data.get(Calendar.HOUR_OF_DAY), data.get(Calendar.MINUTE));
         } else return "";
     }
 
@@ -87,20 +87,57 @@ public class MainActivity extends AppCompatActivity implements HttpConnector.Htt
             if (lastRespond.length() > 0) {
                 valutes.clear();
                 valutes.addAll(parseResponce(lastRespond));
+                valutes.add(0, Valute.getRuble());
                 adapter.notifyDataSetChanged();
+                if (!convertingValutesChoosed) {
+                    refreshConvertingValutes();
+                    convertingValutesChoosed = true;
+                }
             }
         }
         refreshButton.setOnClickListener(this);
+        swapButton.setOnClickListener(this);
+        firstValuteField.addTextChangedListener(this);
+        firstValuteField.setOnKeyListener(this);
     }
+
+
 
     @Override
     public void onClick(View view) {
-        if (view.getId() == R.id.refreshImageButton && !connector.isWorking()) refresh();
+        switch (view.getId()) {
+            case R.id.refreshImageButton:
+                if (!connector.isWorking()) refresh();
+            break;
+            case R.id.swapImageButton:
+                swapConvertorValutes();
+                break;
+        }
+    }
+
+    @Override
+    public boolean onKey(View view, int keyCode, KeyEvent keyEvent) {
+        return false;
+    }
+
+    @Override
+    public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+    }
+
+    @Override
+    public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+        refreshConvertingValue();
+    }
+
+    @Override
+    public void afterTextChanged(Editable editable) {
+
     }
 
     @Override
     public void onItemClick(int pos) {
-        Toast.makeText(this, valutes.get(pos).getName().concat(" clicked"), Toast.LENGTH_SHORT).show();
+        refreshConvertingValutes(pos, convertingValutesPos[1]);
     }
 
     @Override
@@ -112,11 +149,16 @@ public class MainActivity extends AppCompatActivity implements HttpConnector.Htt
         editor.apply();
         valutes.clear();
         valutes.addAll(parseResponce(result));
+        valutes.add(0, Valute.getRuble());
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 lastRefreshTime.setText(parseTime(lastRespondTime));
                 adapter.notifyDataSetChanged();
+                if (!convertingValutesChoosed) {
+                    refreshConvertingValutes();
+                    convertingValutesChoosed = true;
+                }
             }
         });
     }
@@ -131,15 +173,52 @@ public class MainActivity extends AppCompatActivity implements HttpConnector.Htt
         });
     }
 
-    private void startRefreshAnimation() {
+    private void refreshConvertingValue() {
+        final String inputValue = firstValuteField.getText().toString().trim().replace(",", ".");
+        String result = "";
+        try {
+            Double input;
+            if (inputValue.length() > 0 && (input = Double.parseDouble(inputValue)) >= 0)
+                result = String.format("%.3f", convert(valutes.get(convertingValutesPos[0]), valutes.get(convertingValutesPos[1]), input));
+        } catch (NumberFormatException exception) {
+            secondValuteField.setText("");
+        }
+        secondValuteField.setText(result);
+    }
+
+    private double convert(Valute from, Valute to, double count) {
+        return count * ((from.getValue() / from.getNominal()) / (to.getValue() / to.getNominal()));
+    }
+
+    private void refreshConvertingValutes(int firstValutePos, int secondValutePos) {
+        convertingValutesPos[0] = firstValutePos;
+        convertingValutesPos[1] = secondValutePos;
+        refreshConvertingValutes();
+    }
+
+    private void refreshConvertingValutes() {
+        final int
+                fPos = convertingValutesPos[0],
+                sPos = convertingValutesPos[1];
+        firstValuteTitle.setText(valutes.get(fPos).getCharCode());
+        secondValuteTitle.setText(valutes.get(sPos).getCharCode());
+        refreshConvertingValue();
+    }
+
+    private void swapConvertorValutes() {
+        startRotationAnimation(swapButton, 0.5f);
+        refreshConvertingValutes(convertingValutesPos[1], convertingValutesPos[0]);
+    }
+
+    private void startRotationAnimation(View view, float rounds) {
         final int duration = 500;
-        refreshAnimator = ObjectAnimator.ofFloat(refreshButton, "rotation", 0, 360).setDuration(duration);
+        refreshAnimator = ObjectAnimator.ofFloat(view, "rotation", 0, rounds * 360).setDuration(duration);
         refreshAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
         refreshAnimator.start();
     }
 
     private void refresh() {
-        startRefreshAnimation();
+        startRotationAnimation(refreshButton, 1);
         try {
             connector.get(new URL("https://www.cbr-xml-daily.ru/daily_json.js"), 1);
         } catch (MalformedURLException e) {
@@ -151,6 +230,11 @@ public class MainActivity extends AppCompatActivity implements HttpConnector.Htt
         recyclerView = findViewById(R.id.valuteListRecycler);
         lastRefreshTime = findViewById(R.id.lastRefreshTimeTextView);
         refreshButton = findViewById(R.id.refreshImageButton);
+        swapButton = findViewById(R.id.swapImageButton);
+        firstValuteField = findViewById(R.id.firstValuteEditText);
+        secondValuteField = findViewById(R.id.secondValuteText);
+        firstValuteTitle = findViewById(R.id.firstValuteTitle);
+        secondValuteTitle = findViewById(R.id.secondValuteTitle);
     }
 }
 
@@ -174,14 +258,22 @@ class RecyclerAdapter extends RecyclerView.Adapter<RecyclerAdapter.ViewHolder> {
     }
 
     public void onBindViewHolder(ViewHolder holder, int pos) {
+        if (list.get(pos).getID().equals(Valute.RUB_ID)) {
+            holder.arrow.setVisibility(View.GONE);
+            holder.previous.setVisibility(View.GONE);
+        } else {
+            holder.arrow.setVisibility(View.VISIBLE);
+            holder.previous.setVisibility(View.VISIBLE);
+            holder.previous.setText(String.format("%.2f", list.get(pos).getPrevious() / list.get(pos).getNominal()));
+        }
         holder.name.setText(list.get(pos).getName());
         holder.charCode.setText(list.get(pos).getCharCode());
-        holder.previous.setText(String.format("%.2f", list.get(pos).getPrevious() / list.get(pos).getNominal()));
         holder.value.setText(String.format("%.2f", list.get(pos).getValue() / list.get(pos).getNominal()));
     }
 
     public class ViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
         TextView name, value, previous, charCode;
+        ImageView arrow;
 
         public ViewHolder(View view) {
             super(view);
@@ -190,6 +282,7 @@ class RecyclerAdapter extends RecyclerView.Adapter<RecyclerAdapter.ViewHolder> {
             value = view.findViewById(R.id.valueTextView);
             previous = view.findViewById(R.id.previousValueTextView);
             charCode = view.findViewById(R.id.charCodeTextView);
+            arrow = view.findViewById(R.id.changeArrow);
         }
 
         @Override
