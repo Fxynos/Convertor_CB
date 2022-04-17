@@ -44,7 +44,9 @@ public class MainActivity extends AppCompatActivity implements HttpConnector.Htt
     EditText firstValuteField;
 
     int[] convertingValutesPos = new int[]{0, 11};
-    boolean convertingValutesChoosed = false;
+    boolean
+            convertingValutesChoosed = false,
+            listLoaded = false;
 
     static private String parseTime(long millis) {
         if (millis > 0) {
@@ -89,6 +91,7 @@ public class MainActivity extends AppCompatActivity implements HttpConnector.Htt
                 valutes.addAll(parseResponce(lastRespond));
                 valutes.add(0, Valute.getRuble());
                 adapter.notifyDataSetChanged();
+                listLoaded = true;
                 if (!convertingValutesChoosed) {
                     refreshConvertingValutes();
                     convertingValutesChoosed = true;
@@ -155,6 +158,7 @@ public class MainActivity extends AppCompatActivity implements HttpConnector.Htt
             public void run() {
                 lastRefreshTime.setText(parseTime(lastRespondTime));
                 adapter.notifyDataSetChanged();
+                listLoaded = true;
                 if (!convertingValutesChoosed) {
                     refreshConvertingValutes();
                     convertingValutesChoosed = true;
@@ -174,16 +178,18 @@ public class MainActivity extends AppCompatActivity implements HttpConnector.Htt
     }
 
     private void refreshConvertingValue() {
-        final String inputValue = firstValuteField.getText().toString().trim().replace(",", ".");
-        String result = "";
-        try {
-            Double input;
-            if (inputValue.length() > 0 && (input = Double.parseDouble(inputValue)) >= 0)
-                result = String.format("%.3f", convert(valutes.get(convertingValutesPos[0]), valutes.get(convertingValutesPos[1]), input));
-        } catch (NumberFormatException exception) {
-            secondValuteField.setText("");
+        if (listLoaded) {
+            final String inputValue = firstValuteField.getText().toString().trim().replace(",", ".");
+            String result = "";
+            try {
+                Double input;
+                if (inputValue.length() > 0 && (input = Double.parseDouble(inputValue)) >= 0)
+                    result = String.format("%.3f", convert(valutes.get(convertingValutesPos[0]), valutes.get(convertingValutesPos[1]), input));
+            } catch (NumberFormatException exception) {
+                secondValuteField.setText("");
+            }
+            secondValuteField.setText(result);
         }
-        secondValuteField.setText(result);
     }
 
     private double convert(Valute from, Valute to, double count) {
@@ -206,12 +212,14 @@ public class MainActivity extends AppCompatActivity implements HttpConnector.Htt
     }
 
     private void swapConvertorValutes() {
-        startRotationAnimation(swapButton, 0.5f);
-        refreshConvertingValutes(convertingValutesPos[1], convertingValutesPos[0]);
+        if (listLoaded) {
+            startRotationAnimation(swapButton, 0.5f);
+            refreshConvertingValutes(convertingValutesPos[1], convertingValutesPos[0]);
+        }
     }
 
     private void startRotationAnimation(View view, float rounds) {
-        final int duration = 500;
+        final int duration = (int) (500 * rounds);
         refreshAnimator = ObjectAnimator.ofFloat(view, "rotation", 0, rounds * 360).setDuration(duration);
         refreshAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
         refreshAnimator.start();
